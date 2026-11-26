@@ -2,8 +2,12 @@ import axios from 'axios'
 import { store } from '@/store'
 import { clearSession } from '@/store/slices/authSlice'
 
+const apiBaseUrl = import.meta.env.VITE_API_URL || (
+  import.meta.env.DEV ? '/api' : 'https://ajaia-llc-assessment.onrender.com/api'
+)
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: apiBaseUrl,
   timeout: 12_000,
   headers: { 'Content-Type': 'application/json' },
 })

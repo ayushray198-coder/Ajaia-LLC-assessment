@@ -29,6 +29,17 @@ test('CORS preflight allows bearer-authenticated frontend requests', async () =>
   assert.match(response.headers['access-control-allow-headers'], /Authorization/i)
 })
 
+test('CORS preflight allows the deployed Vercel frontend', async () => {
+  const response = await request(createApp())
+    .options('/api/documents')
+    .set('Origin', 'https://ajaia-llc-assessment.vercel.app')
+    .set('Access-Control-Request-Method', 'GET')
+    .set('Access-Control-Request-Headers', 'authorization,content-type')
+
+  assert.equal(response.status, 204)
+  assert.equal(response.headers['access-control-allow-origin'], 'https://ajaia-llc-assessment.vercel.app')
+})
+
 test('demo identity middleware rejects arbitrary user identifiers', async () => {
   const response = await request(createApp()).get('/api/auth/me').set('X-Demo-User', 'not-a-demo-user')
   assert.equal(response.status, 401)
