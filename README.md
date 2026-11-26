@@ -18,7 +18,7 @@ Draftly is a document workspace for writing, organizing and sharing ideas. It st
 
 - Frontend: React, Vite, Tailwind CSS, React Router, Redux Toolkit, TanStack Query, Axios, Tiptap, React Hook Form and Zod
 - Backend: Node.js, Express, Mongoose, MongoDB Atlas and Zod
-- Security: Helmet, explicit CORS origin, API rate limiting, scrypt password hashes, expiring signed tokens, server-side validation and centralized safe errors
+- Security: Helmet, explicit CORS origin, API rate limiting, scrypt password hashes, random expiring bearer sessions stored as hashes in MongoDB, server-side validation and centralized safe errors
 
 ## Project structure
 
@@ -30,7 +30,7 @@ backend/
     config/                 # environment, CORS, database
     middleware/             # request error and not-found responses
     modules/
-      auth/                 # registration, login, tokens and demo identity
+      auth/                 # registration, login, persisted sessions and demo identity
       users/                # user model, repository, account and demo users
       documents/            # model, validation, repository, policy and document API
       sharing/              # sharing grants and revocation
@@ -57,10 +57,10 @@ frontend/
 
 ## Environment setup
 
-1. Copy `backend/.env.example` to `backend/.env` and set `MONGODB_URI` to your Atlas connection string. The database user needs read/write access and your current IP must be allowed in Atlas Network Access.
+1. Set `MONGODB_URI` in your local `backend/.env` or in the backend hosting provider's environment settings. The database user needs read/write access and your current IP must be allowed in Atlas Network Access.
 2. `MONGODB_DATABASE` defaults to `atlas_app`.
 3. Set `CLIENT_ORIGIN` to the exact frontend origin in deployment. It defaults to `http://localhost:5173` locally.
-4. Copy `frontend/.env.example` to `frontend/.env` only if you need a separately hosted API; set `VITE_API_URL` to that API origin plus `/api`. Locally, Vite proxies `/api` to port 5000.
+4. Set `VITE_API_URL` in `frontend/.env` only if you need a separately hosted API; use that API origin plus `/api`. Locally, Vite proxies `/api` to port 5000.
 
 The supplied Atlas credentials are stored only in the ignored local `backend/.env`; never commit that file.
 
@@ -135,7 +135,7 @@ npm.cmd run build
 
 The app is prepared for a Vercel frontend, Render API and MongoDB Atlas database; it has not been deployed.
 
-- **Render:** create a Node web service from `backend`; build command `npm install`, start command `npm start`; set `NODE_ENV=production`, `MONGODB_URI`, a private random `AUTH_TOKEN_SECRET` (at least 32 characters), and `CLIENT_ORIGIN` (the deployed Vercel origin). `MONGODB_DATABASE` is optional (`atlas_app` by default); Render supplies `PORT`.
+- **Render:** create a Node web service from `backend`; build command `npm install`, start command `npm start`; set `NODE_ENV=production`, `MONGODB_URI`, and `CLIENT_ORIGIN` (the deployed Vercel origin). `MONGODB_DATABASE` is optional (`atlas_app` by default); Render supplies `PORT`. Auth sessions are random, expire after seven days, and are stored as hashes in MongoDB, so no `AUTH_TOKEN_SECRET` variable is required.
 - **Vercel:** set the project root to `frontend`, build command `npm run build`, output directory `dist`; set `VITE_API_URL` to `https://<your-render-service>/api`. `frontend/vercel.json` rewrites app routes to the SPA entry so direct document links and refreshes work. Since this is cross-origin, set backend `CLIENT_ORIGIN` to the deployed Vercel origin.
 - **Atlas:** allow the Render service network and create a least-privilege database user. Do not use a broad IP allowlist for production.
 - Verify `/api/health` reports `database: connected` after deployment.

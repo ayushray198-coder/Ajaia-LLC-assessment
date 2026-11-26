@@ -1,12 +1,13 @@
-import { createHmac, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
 import { AppError } from '../../shared/errors/AppError.js'
 import { createUser, findByDemoId, findByEmail } from '../users/user.repository.js'
 import { DEMO_USER_IDS } from './auth.constants.js'
-import { env } from '../../config/env.js'
+import { AuthSession } from './session.model.js'
 
 const scrypt = promisify(scryptCallback)
-const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
+const TOKEN_TTL_MS = 60 * 60 * 24 * 7 * 1000
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/
 
 function publicUser(user) {
   const value = user.toObject ? user.toObject() : user
@@ -28,24 +29,27 @@ async function verifyPassword(password, passwordHash) {
   return expected.length === key.length && timingSafeEqual(expected, key)
 }
 
-function signToken(userId) {
-  const payload = Buffer.from(JSON.stringify({ sub: String(userId), exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS })).toString('base64url')
-  const signature = createHmac('sha256', env.AUTH_TOKEN_SECRET).update(payload).digest('base64url')
-  return `${payload}.${signature}`
+async function createAuthToken(userId) {
+  const token = randomBytes(32).toString('base64url')
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  await AuthSession.create({
+    userId,
+    tokenHash,
+    expiresAt: new Date(Date.now() + TOKEN_TTL_MS),
+  })
+  return token
 }
 
-export function verifyToken(token) {
-  if (typeof token !== 'string') return null
-  const [payload, signature] = token.split('.')
-  if (!payload || !signature) return null
-  const expected = createHmac('sha256', env.AUTH_TOKEN_SECRET).update(payload).digest()
-  let received
-  try { received = Buffer.from(signature, 'base64url') } catch { return null }
-  if (received.length !== expected.length || !timingSafeEqual(received, expected)) return null
-  try {
-    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
-    return claims.exp > Math.floor(Date.now() / 1000) && typeof claims.sub === 'string' ? claims.sub : null
-  } catch { return null }
+export async function verifyToken(token) {
+  if (typeof token !== 'string' || !TOKEN_PATTERN.test(token)) return null
+
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  const session = await AuthSession.findOne({
+    tokenHash,
+    expiresAt: { $gt: new Date() },
+  }).select('userId').lean()
+
+  return session?.userId ? String(session.userId) : null
 }
 
 export async function registerAccount({ name, email, password }) {
@@ -65,7 +69,7 @@ export async function registerAccount({ name, email, password }) {
     if (error?.code === 11000) throw new AppError(409, 'An account with this email already exists.', 'EMAIL_IN_USE')
     throw error
   }
-  return { user: publicUser(user), token: signToken(user._id) }
+  return { user: publicUser(user), token: await createAuthToken(user._id) }
 }
 
 export async function loginAccount({ email, password }) {
@@ -73,7 +77,7 @@ export async function loginAccount({ email, password }) {
   if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
     throw new AppError(401, 'Email or password is incorrect.', 'INVALID_CREDENTIALS')
   }
-  return { user: publicUser(user), token: signToken(user._id) }
+  return { user: publicUser(user), token: await createAuthToken(user._id) }
 }
 
 export async function getDemoUser(demoId) {

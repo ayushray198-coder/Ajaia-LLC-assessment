@@ -1,9 +1,10 @@
+import 'dotenv/config'
 import mongoose from 'mongoose'
-import { env } from './env.js'
 
 export async function connectDB() {
-  if (!env.MONGODB_URI) {
+  const uri = process.env.MONGODB_URI?.trim()
+  if (!uri) {
     throw new Error('MONGODB_URI is missing. Set it in backend/.env before starting the API.')
   }
-  await mongoose.connect(env.MONGODB_URI, { dbName: env.MONGODB_DATABASE })
+  await mongoose.connect(uri, { dbName: process.env.MONGODB_DATABASE || 'atlas_app' })
 }

@@ -1,8 +1,8 @@
+import 'dotenv/config'
 import express from 'express'
 import helmet from 'helmet'
 import { rateLimit } from 'express-rate-limit'
 import mongoose from 'mongoose'
-import { env } from './config/env.js'
 import { corsMiddleware } from './config/cors.js'
 import { requireDemoUser } from './modules/auth/demoAuth.middleware.js'
 import { authRoutes, publicAuthRoutes } from './modules/auth/auth.routes.js'
@@ -16,7 +16,7 @@ import { notFoundHandler } from './middleware/notFoundHandler.js'
 export function createApp() {
   const app = express()
   app.disable('x-powered-by')
-  if (env.NODE_ENV === 'production') app.set('trust proxy', 1)
+  if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1)
   app.use(helmet())
   app.use(corsMiddleware)
   app.use(express.json({ limit: '8mb' }))
@@ -43,4 +43,3 @@ export function createApp() {
 }
 
 export const app = createApp()
-export { env }

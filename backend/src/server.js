@@ -1,5 +1,6 @@
+import 'dotenv/config'
 import mongoose from 'mongoose'
-import { app, env } from './app.js'
+import { app } from './app.js'
 import { connectDB } from './config/db.js'
 import { seedDemoUsers } from './modules/users/user.service.js'
 
@@ -7,7 +8,7 @@ async function start() {
   await connectDB()
   await seedDemoUsers()
 
-  const server = app.listen(env.PORT)
+  const server = app.listen(Number(process.env.PORT) || 5000)
 
   const shutdown = async () => {
     server.close()

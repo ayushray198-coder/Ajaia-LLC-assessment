@@ -16,15 +16,15 @@ Redux Toolkit stores the signed-in token/user or selected demo identity and side
 
 ## Backend modules and request lifecycle
 
-- `auth/` registers and authenticates accounts, hashes passwords with Node scrypt, issues expiring signed tokens, and resolves optional seeded demo identities.
+- `auth/` registers and authenticates accounts, hashes passwords with Node scrypt, issues random expiring bearer sessions stored as SHA-256 hashes in MongoDB, and resolves optional seeded demo identities.
 - `users/` stores accounts and exposes safe user fields; demo users are seeded with idempotent upserts.
 - `documents/` owns the document schema, validation, repository, business rules, access policies and HTTP routes/controllers.
 - `sharing/` owns share and revoke actions and calls document service interfaces for accessible document lookup and persistence.
 - `file-import/` validates text uploads, converts a safe Markdown subset to Tiptap JSON and creates documents through the document service.
-- `config/` validates environment variables and configures MongoDB and explicit CORS.
+- `config/` loads local environment values and configures MongoDB and explicit CORS.
 - `middleware/` applies consistent safe error and not-found responses.
 
-Requests pass through Helmet, exact-origin CORS (including `Authorization` for account bearer tokens and `X-Demo-User` for the optional demo workspace), JSON size limits and rate limiting. Registration and login have an additional attempt limit. Private API routes resolve the bearer-token account or controlled demo user, validate request data, apply document policies and return a consistent response. MongoDB failures are not returned to clients.
+Requests pass through Helmet, exact-origin CORS (including `Authorization` for account bearer tokens and `X-Demo-User` for the optional demo workspace), JSON size limits and rate limiting. Registration and login have an additional attempt limit. Private API routes resolve the persisted bearer session or controlled demo user, validate request data, apply document policies and return a consistent response. MongoDB failures are not returned to clients.
 
 ## Data model
 
@@ -36,11 +36,11 @@ Requests pass through Helmet, exact-origin CORS (including `Authorization` for a
 - Shared users may have viewer or editor access; only owners can change access or share onward.
 - Other signed-in users and demo users receive a safe not-found response for document reads/updates unless shared.
 - Revoking sharing removes the database reference; subsequent requests fail access checks immediately.
-- Demo identities can only be selected from the seeded allowlist; real accounts use expiring signed bearer tokens.
+- Demo identities can only be selected from the seeded allowlist; real accounts use random seven-day bearer sessions whose hashes are stored in MongoDB.
 
 ## Security measures
 
-Helmet security headers, exact-origin CORS, API rate limiting, Zod input schemas, scrypt password hashes, expiring signed tokens, a 1 MB import cap, bounded file extensions, allowlisted document update fields, Mongoose ObjectId checks, server-side access policies and generic internal errors. Production deployments must set a private `AUTH_TOKEN_SECRET` and use HTTPS.
+Helmet security headers, exact-origin CORS, API rate limiting, Zod input schemas, scrypt password hashes, opaque expiring sessions stored as hashes, a 1 MB import cap, bounded file extensions, allowlisted document update fields, Mongoose ObjectId checks, server-side access policies and generic internal errors. Production deployments require MongoDB read/write access and HTTPS; no token-signing secret environment variable is required.
 
 ## Tradeoffs and limits
 

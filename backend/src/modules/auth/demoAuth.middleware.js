@@ -6,7 +6,7 @@ export async function requireDemoUser(request, response, next) {
   try {
     const authorization = request.get('Authorization')
     if (authorization?.startsWith('Bearer ')) {
-      const userId = verifyToken(authorization.slice(7))
+      const userId = await verifyToken(authorization.slice(7))
       const user = userId ? await findById(userId) : null
       if (!user) return response.status(401).json({ success: false, message: 'Please sign in again.', code: 'UNAUTHENTICATED' })
       request.user = user
